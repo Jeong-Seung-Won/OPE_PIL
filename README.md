@@ -65,7 +65,6 @@ python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
 ```
 .
 ├── main.py                  # Unified entry point for all eight backbones
-├── run_all.py               # Batch runner for paper experiments
 ├── requirements.txt
 │
 ├── data_provider/           # Sliding-window dataset loaders
