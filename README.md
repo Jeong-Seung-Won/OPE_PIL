@@ -38,7 +38,7 @@ python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
 | MEMTO                  | Full plug-in       | NeurIPS 2023 | `memto`              |
 | Sub-Adjacent Transformer | Full plug-in     | IJCAI 2024   | `sub_adjacent_transformer` |
 | DAGMM                  | Loss-only plug-in  | ICLR 2018    | `dagmm`              |
-| DTAAD                  | Loss-only plug-in  | Knowledge-based Systems 2024     | `dtaad`              |
+| DTAAD                  | Loss-only plug-in  | Knowledge-Based Systems 2024 | `dtaad` |
 | LSTM-AE                | Loss-only plug-in  | ICML 2015 WS | `lstm_autoencoder`   |
 | NPSR                   | Loss-only plug-in  | NeurIPS 2023 | `npsr`               |
 | TranAD                 | Loss-only plug-in  | VLDB 2022    | `tranad`             |
@@ -67,13 +67,16 @@ python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
 ├── main.py                  # Unified entry point for all eight backbones
 ├── requirements.txt
 │
-├── data_provider/           # Sliding-window dataset loaders
+├── data_provider/
+│   ├── data_factory.py      # Builds the train/test DataLoader
+│   └── data_loader.py       # KAFASATAnomalyDataset (sliding-window TLE)
+│
 ├── exp/                     # Experiment classes
 │   ├── exp_basic.py         # Backbone registry
-│   ├── exp_ad.py            # Standard reconstruction loop
+│   ├── exp_ad.py            # Standard reconstruction training/evaluation loop
 │   └── exp_ad_sat.py        # SAT-specific training loop
 │
-├── models/                  # Backbone implementations (8 paper models)
+├── models/                  # Backbone implementations (eight paper models)
 │   ├── anomalytransformer.py
 │   ├── memto.py
 │   ├── sub_adjacent_transformer.py
@@ -88,8 +91,8 @@ python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
     ├── ope_patch.py         # Plug-in substitution into Transformer backbones
     ├── physics_loss.py      # Physics-informed Loss (Section 4.3)
     ├── orbital_period.py    # T_orb estimation via Kepler third law
-    ├── metrics.py           # Binary and multiclass F1 evaluation
-    └── tools.py
+    ├── metrics.py           # Reconstruction-error metrics (MAE / MSE / RMSE)
+    └── tools.py             # EarlyStopping, learning-rate schedule
 ```
 
 ## License
