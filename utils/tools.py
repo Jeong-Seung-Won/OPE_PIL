@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
-import torch.distributed as dist
 plt.switch_backend('agg')
 
 
@@ -13,7 +12,6 @@ def adjust_learning_rate(optimizer, epoch, args):
         lr_adjust = {epoch: args.learning_rate * (0.5 ** epoch)}
     elif args.lradj == 'type3':
         lr_adjust = {epoch: args.learning_rate * (0.9 ** epoch)}
-
 
     if epoch in lr_adjust.keys():
         lr = lr_adjust[epoch]
@@ -31,12 +29,6 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.inf
         self.delta = delta
-        self.dp = args.dp
-        self.ddp = args.ddp
-        if self.ddp:
-            self.local_rank = args.local_rank
-        else:
-            self.local_rank = None
 
     def __call__(self, val_loss, model, path):
         score = -val_loss
@@ -46,28 +38,14 @@ class EarlyStopping:
                 print(
                     f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).')
             self.val_loss_min = val_loss
-            # DDP 환경에서 안전하게 checkpoint 저장
-            if self.ddp:
-                if self.local_rank == 0:
-                    self.save_checkpoint(val_loss, model, path)
-                    print(f"✅ Checkpoint saved by rank {self.local_rank}")
-                # barrier 제거 - 블로킹 방지
-            else:
-                self.save_checkpoint(val_loss, model, path)
+            self.save_checkpoint(val_loss, model, path)
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
             self.best_score = score
-            # DDP 환경에서 안전하게 checkpoint 저장
-            if self.ddp:
-                if self.local_rank == 0:
-                    self.save_checkpoint(val_loss, model, path)
-                    print(f"✅ Checkpoint saved by rank {self.local_rank}")
-                # barrier 제거 - 블로킹 방지
-            else:
-                self.save_checkpoint(val_loss, model, path)
+            self.save_checkpoint(val_loss, model, path)
             if self.verbose:
                 print(
                     f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).')
@@ -75,8 +53,6 @@ class EarlyStopping:
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model, path):
-        if self.dp or self.ddp:
-            model = model.module
         param_grad_dic = {
             k: v.requires_grad for (k, v) in model.named_parameters()
         }
@@ -87,10 +63,9 @@ class EarlyStopping:
                 del state_dict[k]
         torch.save(state_dict, path + '/' + f'checkpoint.pth')
 
+
 def visual(true, preds=None, name='./pic/test.pdf'):
-    """
-    Results visualization
-    """
+    """Results visualization."""
     plt.figure()
     plt.plot(true, label='GroundTruth', linewidth=2)
     if preds is not None:

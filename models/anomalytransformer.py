@@ -1,8 +1,3 @@
-"""
-Anomaly Transformer for time series anomaly detection
-Based on: "Anomaly Transformer: Time Series Anomaly Detection with Association Discrepancy"
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +6,6 @@ import math
 
 
 class PositionalEmbedding(nn.Module):
-    """Positional encoding for transformer"""
     def __init__(self, d_model, max_len=5000):
         super(PositionalEmbedding, self).__init__()
         pe = torch.zeros(max_len, d_model).float()
@@ -31,7 +25,6 @@ class PositionalEmbedding(nn.Module):
 
 
 class TokenEmbedding(nn.Module):
-    """Token embedding using 1D convolution"""
     def __init__(self, c_in, d_model):
         super(TokenEmbedding, self).__init__()
         padding = 1
@@ -50,7 +43,6 @@ class TokenEmbedding(nn.Module):
 
 
 class DataEmbedding(nn.Module):
-    """Data embedding combining token and positional embeddings"""
     def __init__(self, c_in, d_model, dropout=0.0):
         super(DataEmbedding, self).__init__()
         self.value_embedding = TokenEmbedding(c_in=c_in, d_model=d_model)
@@ -63,7 +55,6 @@ class DataEmbedding(nn.Module):
 
 
 class AnomalyAttention(nn.Module):
-    """Anomaly attention mechanism with prior-association"""
     def __init__(self, win_size, scale=None, attention_dropout=0.0, output_attention=False):
         super(AnomalyAttention, self).__init__()
         self.scale = scale
@@ -75,7 +66,6 @@ class AnomalyAttention(nn.Module):
         self.register_buffer('distances', self._create_distance_matrix(win_size))
     
     def _create_distance_matrix(self, win_size):
-        """Create distance matrix for prior computation"""
         distances = torch.zeros((win_size, win_size))
         for i in range(win_size):
             for j in range(win_size):
@@ -124,7 +114,6 @@ class AnomalyAttention(nn.Module):
 
 
 class AttentionLayer(nn.Module):
-    """Multi-head attention layer wrapper"""
     def __init__(self, attention, d_model, n_heads, d_keys=None, d_values=None):
         super(AttentionLayer, self).__init__()
         
@@ -164,7 +153,6 @@ class AttentionLayer(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    """Transformer encoder layer with anomaly attention"""
     def __init__(self, attention, d_model, d_ff=None, dropout=0.1, activation="relu"):
         super(EncoderLayer, self).__init__()
         d_ff = d_ff or 4 * d_model
@@ -192,7 +180,6 @@ class EncoderLayer(nn.Module):
 
 
 class Encoder(nn.Module):
-    """Multi-layer transformer encoder"""
     def __init__(self, attn_layers, norm_layer=None):
         super(Encoder, self).__init__()
         self.attn_layers = nn.ModuleList(attn_layers)
@@ -217,9 +204,6 @@ class Encoder(nn.Module):
 
 
 class Model(nn.Module):
-    """
-    Anomaly Transformer model for time series anomaly detection
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -268,7 +252,6 @@ class Model(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
-        """Initialize weights"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -278,13 +261,6 @@ class Model(nn.Module):
                 nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='leaky_relu')
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            encoded: [batch_size, seq_len, d_model]
-        """
         # Embedding
         enc_out = self.embedding(x)
         
@@ -294,13 +270,6 @@ class Model(nn.Module):
         return enc_out
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for reconstruction
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            reconstructed: [batch_size, seq_len, n_features]
-        """
         # Embedding
         enc_out = self.embedding(x)
         
@@ -321,9 +290,6 @@ class Model(nn.Module):
         return enc_out
     
     def compute_association_discrepancy_loss(self):
-        """
-        Compute association discrepancy loss
-        """
         if not hasattr(self, 'last_series'):
             return {'total_loss': torch.tensor(0.0)}
         
@@ -357,13 +323,6 @@ class Model(nn.Module):
         }
     
     def compute_anomaly_score(self, x):
-        """
-        Compute anomaly score using association discrepancy
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            scores: [batch_size, seq_len]
-        """
         self.eval()
         with torch.no_grad():
             # Forward pass
@@ -403,7 +362,6 @@ class Model(nn.Module):
             return combined_scores
     
     def get_attention_info(self):
-        """Get attention information for analysis"""
         if hasattr(self, 'last_series'):
             return {
                 'series': [s.detach().cpu().numpy() if s is not None else None for s in self.last_series],

@@ -1,8 +1,3 @@
-"""
-DAGMM (Deep Autoencoding Gaussian Mixture Model) for time series anomaly detection
-Based on: "Deep Autoencoding Gaussian Mixture Model for Unsupervised Anomaly Detection"
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,9 +6,6 @@ from torch.distributions import MultivariateNormal
 
 
 class Model(nn.Module):
-    """
-    DAGMM model adapted for time series anomaly detection
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -77,7 +69,6 @@ class Model(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize model weights"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -85,13 +76,6 @@ class Model(nn.Module):
                     nn.init.zeros_(module.bias)
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation for anomaly detection
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            latent: [batch_size, z_dim]
-        """
         # Flatten input
         x_flat = x.view(x.size(0), -1)  # [batch_size, seq_len * n_features]
         
@@ -101,25 +85,9 @@ class Model(nn.Module):
         return z_c
     
     def decode(self, z_c):
-        """
-        Decode latent representation back to original space
-        Args:
-            z_c: [batch_size, z_dim]
-        Returns:
-            x_hat_flat: [batch_size, seq_len * n_features]
-        """
         return self.decoder(z_c)
     
     def compute_reconstruction_features(self, x_flat, x_hat_flat):
-        """
-        Compute reconstruction error features
-        Args:
-            x_flat: [batch_size, input_dim]
-            x_hat_flat: [batch_size, input_dim]
-        Returns:
-            rec_euclidean: [batch_size, 1] - relative euclidean distance
-            rec_cosine: [batch_size, 1] - cosine similarity
-        """
         # Relative Euclidean distance
         euclidean_dist = torch.norm(x_flat - x_hat_flat, p=2, dim=1)
         x_norm = torch.norm(x_flat, p=2, dim=1)
@@ -131,13 +99,6 @@ class Model(nn.Module):
         return rec_euclidean, rec_cosine
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for DAGMM
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            x_reconstructed: [batch_size, seq_len, n_features] for compatibility
-        """
         batch_size = x.size(0)
         
         # Flatten input
@@ -172,14 +133,6 @@ class Model(nn.Module):
         return x_reconstructed
     
     def compute_energy(self, z, gamma):
-        """
-        Compute sample energy (negative log-likelihood)
-        Args:
-            z: [batch_size, z_dim + 2] - augmented features
-            gamma: [batch_size, n_gmm] - mixture weights
-        Returns:
-            energy: [batch_size] - sample energy
-        """
         batch_size = z.size(0)
         
         # Regularize covariance matrices (ensure positive definiteness)
@@ -215,11 +168,6 @@ class Model(nn.Module):
         return energy
     
     def compute_dagmm_loss(self):
-        """
-        Compute DAGMM loss components
-        Returns:
-            loss_dict: Dictionary containing loss components
-        """
         if not hasattr(self, 'last_z_c'):
             return {'total_loss': torch.tensor(0.0)}
         
@@ -252,13 +200,6 @@ class Model(nn.Module):
         }
     
     def compute_anomaly_score(self, x):
-        """
-        Compute anomaly score using DAGMM energy
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            scores: [batch_size, seq_len] - anomaly scores per time step
-        """
         self.eval()
         with torch.no_grad():
             batch_size = x.size(0)
@@ -283,7 +224,6 @@ class Model(nn.Module):
             return scores
     
     def get_gmm_parameters(self):
-        """Get current GMM parameters for analysis"""
         return {
             'phi': self.phi.data.cpu().numpy(),
             'mu': self.mu.data.cpu().numpy(),

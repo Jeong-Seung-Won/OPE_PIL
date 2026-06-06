@@ -1,8 +1,3 @@
-"""
-DTAAD: Deep Transformer-based Anomaly Detection
-Fixed version with proper parameter initialization
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +6,6 @@ import numpy as np
 
 
 class PositionalEncoding(nn.Module):
-    """Positional encoding for transformer"""
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         
@@ -41,7 +35,6 @@ class PositionalEncoding(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    """Multi-head attention mechanism"""
     def __init__(self, d_model, n_heads, dropout=0.1):
         super(MultiHeadAttention, self).__init__()
         
@@ -103,7 +96,6 @@ class MultiHeadAttention(nn.Module):
 
 
 class FeedForward(nn.Module):
-    """Position-wise feed-forward network"""
     def __init__(self, d_model, d_ff, dropout=0.1):
         super(FeedForward, self).__init__()
         
@@ -121,7 +113,6 @@ class FeedForward(nn.Module):
 
 
 class TransformerEncoderLayer(nn.Module):
-    """Transformer encoder layer"""
     def __init__(self, d_model, n_heads, d_ff, dropout=0.1):
         super(TransformerEncoderLayer, self).__init__()
         
@@ -144,7 +135,6 @@ class TransformerEncoderLayer(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    """Multi-layer transformer encoder"""
     def __init__(self, d_model, n_heads, d_ff, n_layers, dropout=0.1):
         super(TransformerEncoder, self).__init__()
         
@@ -160,9 +150,6 @@ class TransformerEncoder(nn.Module):
 
 
 class Model(nn.Module):
-    """
-    DTAAD: Deep Transformer-based Anomaly Detection model
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -242,7 +229,6 @@ class Model(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize model weights"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -253,9 +239,6 @@ class Model(nn.Module):
                 nn.init.zeros_(module.bias)
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation for anomaly detection
-        """
         # Input embedding
         x = self.input_embedding(x)  # [batch_size, seq_len, d_model]
         
@@ -270,9 +253,6 @@ class Model(nn.Module):
         return encoded
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for reconstruction
-        """
         # Encode
         encoded = self.encode(x, x_mark, y_mark)
         
@@ -288,9 +268,6 @@ class Model(nn.Module):
         return reconstructed
     
     def compute_dtaad_loss(self):
-        """
-        Compute DTAAD-specific loss with dual objectives
-        """
         if not hasattr(self, 'last_input'):
             return {'total_loss': torch.tensor(0.0)}
         
@@ -316,9 +293,6 @@ class Model(nn.Module):
         }
     
     def compute_anomaly_score(self, x):
-        """
-        Compute anomaly score using both reconstruction error and learned detector
-        """
         self.eval()
         with torch.no_grad():
             # Get reconstruction

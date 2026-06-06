@@ -1,21 +1,3 @@
-"""
-OPE Patcher: drop-in replacement of positional embedding with
-Orbital Period Embedding (OPE) for Transformer-based AD baselines.
-
-Usage in any main:
-    from utils.ope_patch import maybe_patch_with_ope
-    exp = Exp_AD(args)
-    maybe_patch_with_ope(exp.model, args)        # no-op if --use_ope 0
-
-Supported models (auto-detected from args.model):
-    - anomalytransformer  : model.embedding.position_embedding
-    - memto               : model.embedding.pos_embedding
-    - sub_adjacent_transformer (sat): model.embedding.position_embedding
-
-For unsupported models, this function prints a warning and leaves the model
-unchanged so the experiment still completes (just without OPE).
-"""
-
 from __future__ import annotations
 import os
 import torch.nn as nn
@@ -35,7 +17,6 @@ _PE_ATTR_PATHS = {
 
 
 def _get_nested_attr(obj, dotted: str):
-    """Return obj.<dotted> or None if any segment is missing."""
     cur = obj
     for part in dotted.split('.'):
         if not hasattr(cur, part):
@@ -45,7 +26,6 @@ def _get_nested_attr(obj, dotted: str):
 
 
 def _set_nested_attr(obj, dotted: str, new_value):
-    """Set obj.<dotted> = new_value (last segment is set on the parent)."""
     parts = dotted.split('.')
     parent = obj
     for part in parts[:-1]:
@@ -54,10 +34,6 @@ def _set_nested_attr(obj, dotted: str, new_value):
 
 
 def _infer_d_model_from_pe(old_pe: nn.Module) -> int:
-    """
-    Try to infer d_model from the existing PE module.
-    Standard implementations register a 'pe' buffer of shape (1, max_len, d_model).
-    """
     if hasattr(old_pe, 'pe') and hasattr(old_pe.pe, 'shape'):
         return int(old_pe.pe.shape[-1])
     # Fallback: search any buffer with 3-d shape
@@ -70,15 +46,6 @@ def _infer_d_model_from_pe(old_pe: nn.Module) -> int:
 
 
 def _resolve_period_and_dt(args, default=97.0, default_dt=1.0):
-    """
-    Same priority logic as orbformer2._resolve_orbital_period, exposed here
-    so that baselines (which don't have orbformer2's args path) can reuse it.
-
-    Priority:
-      1) ope_auto_period=0 AND ope_period > 0  -> manual
-      2) ope_auto_period=1 (or ope_period None/<=0) AND CSV given -> Kepler auto
-      3) fallback -> default 97.0
-    """
     manual_T  = getattr(args, 'ope_period', None) or getattr(args, 'orb_period', None)
     manual_dt = getattr(args, 'ope_dt_minutes', None) or getattr(args, 'orb_dt_minutes', None)
     force_auto = bool(
@@ -127,21 +94,6 @@ def _resolve_period_and_dt(args, default=97.0, default_dt=1.0):
 
 
 def maybe_patch_with_ope(model: nn.Module, args) -> bool:
-    """
-    Replace the model's positional embedding with OrbitalPeriodEmbedding
-    if args.use_ope == 1. Returns True if patching happened, False otherwise.
-
-    Reads from args (any of these keys; falls back to defaults):
-        use_ope            : 1=patch, 0=skip (REQUIRED to opt-in)
-        ope_period         : manual T_orb (minutes)
-        ope_dt_minutes     : sampling interval (minutes)
-        ope_auto_period    : 1=auto-detect via Kepler
-        ope_train_csv_path : training CSV for auto detection
-        ope_n_harmonics    : number of sin/cos harmonics (default 4)
-        sma_column         : SMA column name in CSV
-        timestamp_column   : timestamp column name in CSV
-        model              : model name (used to look up PE attribute path)
-    """
     if not bool(getattr(args, 'use_ope', 0)):
         return False
 
@@ -185,14 +137,6 @@ def maybe_patch_with_ope(model: nn.Module, args) -> bool:
 
 
 def ope_setting_tag(args) -> str:
-    """
-    Return a short tag describing OPE config, e.g.
-        'ope0'              when use_ope=0
-        'ope1_autoT'        when use_ope=1 & auto period
-        'ope1_T97'          when use_ope=1 & manual T_orb=97
-    Useful for incorporating into a 'setting' string so OPE/non-OPE runs
-    don't share the same checkpoint directory.
-    """
     if not bool(getattr(args, 'use_ope', 0)):
         return 'ope0'
     auto = bool(

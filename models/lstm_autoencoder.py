@@ -1,17 +1,9 @@
-"""
-LSTM AutoEncoder model for anomaly detection
-"""
-
 import torch
 import torch.nn as nn
 import numpy as np
 
 
 class Model(nn.Module):
-    """
-    LSTM-based AutoEncoder for time series anomaly detection
-    This class follows the pattern expected by exp_basic.py
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -55,7 +47,6 @@ class Model(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize model weights"""
         for name, param in self.named_parameters():
             if 'weight_ih' in name:
                 nn.init.xavier_uniform_(param.data)
@@ -69,13 +60,6 @@ class Model(nn.Module):
                 param.data[start:end].fill_(1.)
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation for anomaly detection
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            latent: [batch_size, latent_dim]
-        """
         # Encode sequence
         encoded, (hidden, cell) = self.encoder_lstm(x)
         
@@ -87,13 +71,6 @@ class Model(nn.Module):
         return latent
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for reconstruction
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            reconstructed: [batch_size, seq_len, n_features]
-        """
         batch_size, seq_len, _ = x.shape
         
         # Encode

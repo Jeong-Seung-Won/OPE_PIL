@@ -1,9 +1,3 @@
-"""
-NPSR: Neural Performer for Sequence Reconstruction
-Based on NeurIPS 2023 paper
-Uses Performer architecture for efficient attention
-"""
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -20,7 +14,6 @@ except ImportError:
 
 
 class FixedPositionalEmbedding(nn.Module):
-    """Sinusoidal positional embeddings"""
     def __init__(self, dim, max_seq_len):
         super().__init__()
         inv_freq = 1. / (10000 ** (torch.arange(0, dim, 2).float() / dim))
@@ -34,7 +27,6 @@ class FixedPositionalEmbedding(nn.Module):
 
 
 class FallbackPerformer(nn.Module):
-    """Fallback implementation using standard transformer when Performer is not available"""
     def __init__(self, dim, depth, heads, causal=False, **kwargs):
         super().__init__()
         self.layers = nn.ModuleList([
@@ -59,7 +51,6 @@ class FallbackPerformer(nn.Module):
 
 
 class PerfPredSqz(nn.Module):
-    """Squeezing prediction model for the performer"""
     def __init__(self, Win, Wout, D, heads, dep=8, ff_mult=4):
         super().__init__()
         self.model_name = 'M_seq'
@@ -105,7 +96,6 @@ class PerfPredSqz(nn.Module):
 
 
 class PerformerAEPositionalEncoding(nn.Module):
-    """Performer + Autoencoder + Positional Encoding"""
     def __init__(self, W, D, heads, ff_mult=4, dep=4, lat=10, c1={'out':40,'kern':6,'strd':2}, return_lat=False):
         super().__init__()
         self.model_name = 'M_pt'
@@ -150,9 +140,6 @@ class PerformerAEPositionalEncoding(nn.Module):
 
 
 class Model(nn.Module):
-    """
-    NPSR model wrapper for time series anomaly detection
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -198,7 +185,6 @@ class Model(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize model weights"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -209,9 +195,6 @@ class Model(nn.Module):
                 nn.init.zeros_(module.bias)
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation for anomaly detection
-        """
         # Project to model dimension
         x_proj = self.input_projection(x)  # [batch_size, seq_len, d_model]
         
@@ -226,9 +209,6 @@ class Model(nn.Module):
             return self.npsr_model(x_proj)
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for reconstruction
-        """
         # Project to model dimension
         x_proj = self.input_projection(x)  # [batch_size, seq_len, d_model]
         
@@ -249,9 +229,6 @@ class Model(nn.Module):
         return reconstructed
     
     def compute_npsr_loss(self):
-        """
-        Compute NPSR-specific loss
-        """
         if not hasattr(self, 'last_input'):
             return {'total_loss': torch.tensor(0.0)}
         
@@ -264,9 +241,6 @@ class Model(nn.Module):
         }
     
     def compute_anomaly_score(self, x):
-        """
-        Compute anomaly score using reconstruction error
-        """
         self.eval()
         with torch.no_grad():
             reconstructed = self.forward(x)

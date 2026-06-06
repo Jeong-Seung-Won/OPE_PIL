@@ -1,8 +1,3 @@
-"""
-TranAD (Transformer-based Anomaly Detection) model for time series anomaly detection
-Based on: "TranAD: Deep Transformer Networks for Anomaly Detection in Multivariate Time Series Data"
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +6,6 @@ import math
 
 
 class PositionalEncoding(nn.Module):
-    """Positional encoding for transformer"""
     def __init__(self, d_model, max_len=5000):
         super(PositionalEncoding, self).__init__()
         
@@ -31,7 +25,6 @@ class PositionalEncoding(nn.Module):
 
 
 class TranADTransformer(nn.Module):
-    """Single Transformer module for TranAD"""
     def __init__(self, input_dim, d_model, nhead, num_layers, seq_len):
         super(TranADTransformer, self).__init__()
         
@@ -84,10 +77,6 @@ class TranADTransformer(nn.Module):
 
 
 class Model(nn.Module):
-    """
-    TranAD model for time series anomaly detection
-    Uses dual transformer architecture with adversarial training
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -117,7 +106,6 @@ class Model(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize model weights"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -128,13 +116,6 @@ class Model(nn.Module):
                 nn.init.xavier_uniform_(module.out_proj.weight)
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation for anomaly detection
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            latent: [batch_size, seq_len, d_model] (intermediate representation)
-        """
         # Use first transformer's intermediate representation
         x_proj = x.permute(1, 0, 2)  # [seq_len, batch_size, input_dim]
         x_proj = self.transformer1.input_projection(x_proj) * math.sqrt(self.d_model)
@@ -144,13 +125,6 @@ class Model(nn.Module):
         return encoded.permute(1, 0, 2)  # [batch_size, seq_len, d_model]
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for reconstruction
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            reconstructed: [batch_size, seq_len, n_features]
-        """
         if self.training_phase == 1:
             # Phase 1: Standard autoencoder training
             # Both transformers learn to reconstruct independently
@@ -181,9 +155,6 @@ class Model(nn.Module):
             return recon1  # Primary reconstruction from T1
     
     def compute_tranad_loss(self):
-        """
-        Compute TranAD-specific loss based on training phase
-        """
         if not hasattr(self, 'last_input'):
             return {'total_loss': torch.tensor(0.0)}
         
@@ -223,20 +194,12 @@ class Model(nn.Module):
             }
     
     def update_training_phase(self, epoch):
-        """Update training phase"""
         phase_switch_epoch = getattr(self.args, 'tranad_phase_switch', 25)
         if epoch >= phase_switch_epoch and self.training_phase == 1:
             self.training_phase = 2
             print(f"TranAD: Switching to adversarial training phase at epoch {epoch}")
     
     def compute_anomaly_score(self, x):
-        """
-        Compute anomaly score using TranAD approach
-        Args:
-            x: [batch_size, seq_len, n_features]
-        Returns:
-            scores: [batch_size, seq_len]
-        """
         self.eval()
         with torch.no_grad():
             # Get reconstructions from both transformers
@@ -263,7 +226,6 @@ class Model(nn.Module):
             return scores
     
     def get_training_info(self):
-        """Get current training information"""
         return {
             'training_phase': self.training_phase,
             'k_parameter': self.k,

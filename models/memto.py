@@ -1,8 +1,3 @@
-"""
-MEMTO: Memory-augmented Transformer for time series anomaly detection
-Based on NeurIPS 2023 paper
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -291,9 +286,6 @@ class TransformerVar(nn.Module):
 
 # Wrapper for compatibility with existing framework
 class Model(nn.Module):
-    """
-    MEMTO model wrapper for time series anomaly detection
-    """
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
@@ -348,7 +340,6 @@ class Model(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize model weights"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -358,16 +349,10 @@ class Model(nn.Module):
                 nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='leaky_relu')
     
     def encode(self, x, x_mark=None, y_mark=None):
-        """
-        Extract latent representation for anomaly detection
-        """
         outputs = self.memto_model(x)
         return outputs['queries']  # Return encoder outputs
     
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        Forward pass for reconstruction
-        """
         outputs = self.memto_model(x)
         
         # Store outputs for potential loss computation
@@ -378,9 +363,6 @@ class Model(nn.Module):
         return outputs['out']
     
     def compute_memto_loss(self):
-        """
-        Compute MEMTO-specific loss (if needed)
-        """
         if not hasattr(self, 'last_outputs'):
             return {'total_loss': torch.tensor(0.0)}
         
@@ -393,9 +375,6 @@ class Model(nn.Module):
         }
     
     def compute_anomaly_score(self, x):
-        """
-        Compute anomaly score using reconstruction error
-        """
         self.eval()
         with torch.no_grad():
             outputs = self.memto_model(x)
@@ -407,7 +386,6 @@ class Model(nn.Module):
             return scores
     
     def save_memory(self, save_path=None):
-        """Save memory items"""
         if save_path is None:
             os.makedirs('./memory_item', exist_ok=True)
             save_path = f'./memory_item/{self.dataset_name}_memory_item.pth'
@@ -416,7 +394,6 @@ class Model(nn.Module):
         print(f'Memory items saved to {save_path}')
     
     def load_memory(self, load_path=None):
-        """Load memory items"""
         if load_path is None:
             load_path = f'./memory_item/{self.dataset_name}_memory_item.pth'
         

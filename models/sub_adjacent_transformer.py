@@ -1,13 +1,3 @@
-"""
-Sub-Adjacent Transformer (IJCAI 2024)
-Sub-Adjacent Transformer: Improving Time Series Anomaly Detection
-with Reconstruction Error from Sub-Adjacent Neighborhoods
-
-원본 코드에서 변경된 점:
-1. AnomalyAttention.distances: .cuda() 하드코딩 → register_buffer로 교체
-2. Model wrapper: exp_ad.py 호환 forward(x, x_mark, y_mark) → reconstruction 반환
-3. myLossNew, myLoss2, softmax: utils/eval.py에서 인라인으로 포함
-"""
 
 import torch
 import torch.nn as nn
@@ -62,12 +52,7 @@ class DataEmbedding(nn.Module):
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Attention
-# ─────────────────────────────────────────────────────────────────────────────
-
 class AnomalyAttention(nn.Module):
-    """기존 vanilla self-attention (non-linear 버전)"""
     def __init__(self, win_size, mask_flag=True, scale=None,
                  attention_dropout=0.0, output_attention=False):
         super().__init__()
@@ -76,7 +61,6 @@ class AnomalyAttention(nn.Module):
         self.output_attention = output_attention
         self.dropout          = nn.Dropout(attention_dropout)
         tmp = torch.arange(win_size)
-        # .cuda() 하드코딩 제거 → register_buffer로 device 자동 처리
         self.register_buffer('distances',
                              (tmp.unsqueeze(1) - tmp.unsqueeze(0)).abs().float())
 
@@ -92,7 +76,6 @@ class AnomalyAttention(nn.Module):
 
 
 class LinearAnomalyAttention(nn.Module):
-    """Sub-Adjacent linear attention (핵심 기여)"""
     def __init__(self, win_size, mask_flag=False, scale=None,
                  attention_dropout=0.0, output_attention=False,
                  dim_per_head=64, mapping_fun='ours'):
@@ -173,11 +156,6 @@ class AttentionLayer(nn.Module):
         out = out.view(B, L, -1)
         return self.out_projection(out), queries, keys
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Encoder
-# ─────────────────────────────────────────────────────────────────────────────
-
 class EncoderLayer(nn.Module):
     def __init__(self, attention_layer, d_model, d_ff=None,
                  dropout=0.1, activation='relu'):
@@ -215,11 +193,6 @@ class Encoder(nn.Module):
         if self.norm is not None:
             x = self.norm(x)
         return x, queries_list, keys_list
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Sub-Adjacent Transformer core
-# ─────────────────────────────────────────────────────────────────────────────
 
 class SubAdjacentTransformerCore(nn.Module):
     def __init__(self, win_size, enc_in, c_out,
@@ -262,13 +235,7 @@ class SubAdjacentTransformerCore(nn.Module):
             return enc_out, queries_list, keys_list
         return enc_out
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Loss helpers (utils/eval.py → 인라인)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def myLossNew(queries, keys, span=None, one_side=True):
-    """Sub-adjacent association discrepancy loss (linear attn 용)"""
     L = queries.shape[1]
     if span is None:
         span = [20, 30]
@@ -302,7 +269,6 @@ def myLossNew(queries, keys, span=None, one_side=True):
 
 
 def myLoss2(attnMatrix, keys=None, span=None, one_side=True):
-    """Association discrepancy loss (vanilla attn 용, B H L L 입력)"""
     B, H, L, _ = attnMatrix.shape
     lossMat = None
     for k in range(20, 30):
@@ -313,13 +279,12 @@ def myLoss2(attnMatrix, keys=None, span=None, one_side=True):
         diag1   = torch.diagonal(attnMatrix, offset=-(L - k), dim1=-2, dim2=-1)
         diag1   = F.pad(diag1, (0, L - k))
         lossMat = lossMat + diag1
-        lossMat = lossMat + diag1   # 원본 코드 그대로 (double add)
+        lossMat = lossMat + diag1
 
     return torch.mean(lossMat, dim=1)  # B, L
 
 
 def softmax_np(x, temperature=1, window=None):
-    """numpy softmax (anomaly score 집계용)"""
     x = x * temperature
     shape = x.shape[0]
     if window is not None:
@@ -329,7 +294,6 @@ def softmax_np(x, temperature=1, window=None):
             x = np.concatenate([x, x[:int(window - rem)]], axis=0)
         x = x.reshape(-1, window)
     else:
-        # window가 None이면 전체를 한 window로 처리
         x = x.reshape(1, -1)
     x = x.clip(-100, 100)
     output = (np.exp(x) / np.sum(np.exp(x), axis=1, keepdims=True)).reshape(-1)
@@ -337,37 +301,9 @@ def softmax_np(x, temperature=1, window=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Model wrapper — exp_ad.py 호환
 # ─────────────────────────────────────────────────────────────────────────────
 
 class Model(nn.Module):
-    """
-    exp_ad.py 호환 wrapper
-
-    Train loss:
-        phase-1: rec_loss  (reconstruction)
-        phase-2: rec_loss - k * loss_attn  (association discrepancy)
-        → exp_ad_sat.py에서 두 단계 loss 관리
-
-    Anomaly score:
-        softmax(-loss_attn) * rec_loss  (per-timestep)
-
-    args 필드:
-        enc_in          : feature 수
-        seq_len         : window 크기
-        d_model         : hidden dim          (default 512)
-        n_heads         : attention heads     (default 8)
-        e_layers        : encoder layers      (default 3)
-        d_ff            : feed-forward dim    (default 512)
-        dropout         : dropout             (default 0.0)
-        sat_linear_attn : True=LinearAttn, False=VanillaAttn (default True)
-        sat_mapping_fun : linear attn mapping (default 'ours')
-        sat_span        : sub-adjacent span   (default [20, 30])
-        sat_one_side    : one-side span       (default True)
-        sat_k           : loss balance coeff  (default 3.0)
-        sat_temperature : softmax temperature (default 50)
-        sat_softmax_span: softmax window      (default None)
-    """
 
     def __init__(self, args):
         super().__init__()
@@ -389,7 +325,6 @@ class Model(nn.Module):
         self.linear_attn  = linear_attn
         self.win_size     = seq_len
 
-        # span 범위 검증
         assert seq_len >= self.span[1] >= self.span[0] >= 0, \
             f"seq_len({seq_len}) must be >= span[1]({self.span[1]}) >= span[0]({self.span[0]}) >= 0"
 
@@ -410,26 +345,12 @@ class Model(nn.Module):
         self._loss_fn = myLossNew if linear_attn else myLoss2
 
     def forward(self, x, x_mark=None, y_mark=None):
-        """
-        exp_ad.py 호환: reconstruction 반환
-        queries_list, keys_list는 _last_* 에 저장
-        """
         output, queries_list, keys_list = self.core(x)
         self._last_queries = queries_list
         self._last_keys    = keys_list
         return output
 
     def compute_loss(self, x, output, phase=2, rec_criterion=None):
-        """
-        phase=1: rec_loss only
-        phase=2: 2 * rec_loss - k * loss_attn  (원본 loss3 형식)
-
-        rec_criterion : Optional callable(output, x) -> scalar.
-            - None  ⇒ 기본 MSELoss (원본 SAT 동작)
-            - Else  ⇒ 외부에서 주입한 criterion (e.g. Physics-informed loss).
-              주입 시 그 출력이 'rec_loss' 자리에 들어가므로,
-              Physics-informed reconstruction을 그대로 SAT의 2-phase 구조에 결합 가능.
-        """
         if rec_criterion is None:
             criterion = nn.MSELoss()
             rec_loss  = criterion(output, x)
@@ -449,15 +370,10 @@ class Model(nn.Module):
         if phase == 1:
             return rec_loss
         else:
-            # 원본: loss3 = 2*rec_loss - k * loss_attn
             return 2 * rec_loss - self.k * loss_attn
 
     @torch.no_grad()
     def anomaly_score_batch(self, x):
-        """
-        per-timestep anomaly score [B, L]:
-        softmax(-loss_attn) * rec_loss
-        """
         criterion = nn.MSELoss(reduction='none')
         output, queries_list, keys_list = self.core(x)
         n = len(queries_list)

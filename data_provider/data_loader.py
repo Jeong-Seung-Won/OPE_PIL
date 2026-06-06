@@ -9,15 +9,9 @@ warnings.filterwarnings('ignore')
 
 
 class KAFASATAnomalyDataset(Dataset):
-    """
-    KAFASAT 파일 기반 이상 데이터셋 클래스
-    - train/test CSV 파일 경로를 직접 지정하여 사용
-    - 정규화 통계 파일은 root_path 하위에 저장/로드
-    - label은 test 데이터셋에서만 사용
-    """
     def __init__(self, root_path, flag='train', size=None, data_path='kompsat3a_train.csv',
                  scale=True, nonautoregressive=False, test_flag='T',
-                 subset_rand_ratio=1.0, use_full_data=True, target_feature=None, ddp=False, stride = None):
+                 subset_rand_ratio=1.0, use_full_data=True, target_feature=None, stride = None):
         self.seq_len = size[0]
         self.input_token_len = size[1]
         self.output_token_len = size[2]
@@ -35,7 +29,6 @@ class KAFASATAnomalyDataset(Dataset):
         self.nonautoregressive = nonautoregressive
         self.subset_rand_ratio = subset_rand_ratio
         self.use_full_data = use_full_data
-        self.ddp = ddp
 
         self.manual_mean = None
         self.manual_std = None
@@ -63,13 +56,11 @@ class KAFASATAnomalyDataset(Dataset):
 
         print(f"Auto-detected numeric columns: {numeric_columns}")
 
-        # 학습시 사용한 컬럼 고정 파일
         import json
         columns_path = os.path.join(self.root_path, 'kompsat3a_feature_columns.json')
 
         selected_columns = list(numeric_columns)
         if self.flag == 'train':
-            # 학습 시점의 컬럼을 저장 (테스트/검증에서 동일 순서/구성 사용)
             try:
                 with open(columns_path, 'w') as f:
                     json.dump(selected_columns, f)
@@ -77,13 +68,11 @@ class KAFASATAnomalyDataset(Dataset):
             except Exception as e:
                 print(f"[WARN] Failed to save feature columns: {e}")
         else:
-            # 테스트/검증에서는 학습 컬럼을 불러와 동일한 순서/구성으로 정렬
             if os.path.exists(columns_path):
                 try:
                     with open(columns_path, 'r') as f:
                         train_columns = json.load(f)
                     print(f"Loaded training feature columns from: {columns_path}")
-                    # 누락 컬럼은 0으로 채워 추가, 불필요한 컬럼은 제거
                     for col in train_columns:
                         if col not in df_raw.columns:
                             df_raw[col] = 0.0
@@ -93,7 +82,6 @@ class KAFASATAnomalyDataset(Dataset):
             else:
                 print(f"[WARN] Training feature columns not found at {columns_path}. Using auto-detected columns.")
 
-        # 선택된 컬럼 순서대로 데이터 구성
         data_numeric = df_raw[selected_columns].values.astype(np.float32)
         self.numeric_columns = selected_columns
 
@@ -118,43 +106,23 @@ class KAFASATAnomalyDataset(Dataset):
         print(f"Using full data - Total: {data_len} samples for {self.flag}")
 
         if self.scale:
-            # 기존 정규화 통계 파일을 재사용하여 일관성 보장
             stats_filename = "kompsat3a_normalization_stats.npz"
             stats_path = os.path.join(self.root_path, stats_filename)
             
-            # 기존 파일이 있는지 먼저 확인
             if os.path.exists(stats_path):
-                # 기존 통계 로드
                 stats = np.load(stats_path)
                 self.manual_mean = stats['mean']
                 self.manual_std = stats['std']
                 print(f"Using existing normalization stats from: {stats_path}")
             else:
-                # 파일이 없는 경우에만 새로 계산 (첫 실행시)
                 print(f"No existing stats found at {stats_path}")
                 if self.flag == 'train':
                     print("Computing new normalization stats from training data...")
                     self.manual_mean = np.mean(data_numeric, axis=0, keepdims=True, dtype=np.float32)
                     self.manual_std = np.std(data_numeric, axis=0, keepdims=True, dtype=np.float32)
-                    
-                    # 새로 계산한 통계 저장
-                    if self.ddp:
-                        try:
-                            import torch.distributed as dist
-                            if dist.is_initialized() and dist.get_rank() == 0:
-                                np.savez(stats_path, mean=self.manual_mean, std=self.manual_std)
-                                print(f"Saved new normalization stats to: {stats_path}")
-                            if dist.is_initialized():
-                                dist.barrier()
-                        except ImportError:
-                            print("Warning: torch.distributed not available, saving anyway")
-                            np.savez(stats_path, mean=self.manual_mean, std=self.manual_std)
-                            print(f"Saved new normalization stats to: {stats_path}")
-                    else:
-                        np.savez(stats_path, mean=self.manual_mean, std=self.manual_std)
-                        print(f"Saved new normalization stats to: {stats_path}")
+                    np.savez(stats_path, mean=self.manual_mean, std=self.manual_std)
+                    print(f"Saved new normalization stats to: {stats_path}")
                 else:
-                    # test/val인데 파일이 없으면 에러
                     raise FileNotFoundError(f"Normalization stats file not found at {stats_path}. Please run training first.")
             
             print(f"Normalization stats - Mean shape: {self.manual_mean.shape}, Std shape: {self.manual_std.shape}")
@@ -169,7 +137,7 @@ class KAFASATAnomalyDataset(Dataset):
         self.n_timepoint = (max_start + self.stride - 1) // self.stride
 
         print(f"Final data shape: {self.data_x.shape}")
-        print(f"Stride: {self.stride}")  # ← 추가!
+        print(f"Stride: {self.stride}")
         print(f"Number of timepoints (with stride): {self.n_timepoint}")  
 
     def __getitem__(self, index):

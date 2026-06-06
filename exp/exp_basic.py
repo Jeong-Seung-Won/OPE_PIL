@@ -1,5 +1,3 @@
-"""Base experiment class — registers the eight paper backbones."""
-
 from models import (
     anomalytransformer, memto, sub_adjacent_transformer,
     dagmm, dtaad, lstm_autoencoder, npsr, tranad,

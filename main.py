@@ -1,31 +1,3 @@
-"""
-Physics-Informed Plug-ins for Satellite Orbit Anomaly Detection
-================================================================
-CIKM 2026 Short Paper
-
-Unified entry point for the eight reconstruction-based AD backbones
-evaluated in the paper.
-
-Quick start
------------
-# Default backbone (Anomaly Transformer), MSE loss, no OPE:
-python main.py
-
-# Physics-informed Loss on the default backbone:
-python main.py --loss Physics
-
-# Both plug-in components on MEMTO:
-python main.py --loss Physics --use_ope 1 --model memto
-
-# Sub-Adjacent Transformer with both components:
-python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
-
-Backbones
----------
-Full plug-in   (OPE + Physics Loss): anomalytransformer, memto, sub_adjacent_transformer
-Loss-only plug-in (Physics Loss):    dagmm, dtaad, lstm_autoencoder, npsr, tranad
-"""
-
 import argparse
 import os
 import random
@@ -36,10 +8,6 @@ import torch
 
 warnings.filterwarnings('ignore')
 
-
-# =============================================================================
-# Backbones evaluated in the paper
-# =============================================================================
 PAPER_BACKBONES = [
     # Full plug-in (Section 5.2, Table 2)
     'anomalytransformer', 'memto', 'sub_adjacent_transformer',
@@ -47,10 +15,6 @@ PAPER_BACKBONES = [
     'dagmm', 'dtaad', 'lstm_autoencoder', 'npsr', 'tranad',
 ]
 
-
-# =============================================================================
-# Reproducibility
-# =============================================================================
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -60,10 +24,6 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-
-# =============================================================================
-# Argument parser
-# =============================================================================
 def create_args():
     parser = argparse.ArgumentParser(
         description='Physics-Informed Plug-ins for Satellite Orbit Anomaly Detection',
@@ -145,9 +105,26 @@ def create_args():
     parser.add_argument('--train_epochs',   type=int,   default=50)
     parser.add_argument('--batch_size',     type=int,   default=60)
     parser.add_argument('--learning_rate',  type=float, default=1e-3)
+    parser.add_argument('--weight_decay',   type=float, default=0.0)
     parser.add_argument('--patience',       type=int,   default=10)
     parser.add_argument('--use_early_stop', type=bool,  default=True)
     parser.add_argument('--lradj',          type=str,   default='type1')
+    parser.add_argument('--no_scheduler',   action='store_true',
+                        help='Disable the learning-rate scheduler.')
+    parser.add_argument('--cosine',         action='store_true',
+                        help='Use cosine annealing scheduler (SAT only).')
+    parser.add_argument('--tmax',           type=int,   default=50,
+                        help='T_max for cosine annealing (defaults to train_epochs).')
+    parser.add_argument('--samples_per_file', type=int, default=None,
+                        help='Optional cap on samples per file (None = use all).')
+
+    # ── Dataset loader options ───────────────────────────────────────────
+    parser.add_argument('--nonautoregressive', action='store_true',
+                        help='Use non-autoregressive sample construction.')
+    parser.add_argument('--test_flag',        type=str,   default='T',
+                        help='Test split flag used by the dataset loader.')
+    parser.add_argument('--subset_rand_ratio', type=float, default=1.0,
+                        help='Random subset ratio of training data (1.0 = use all).')
 
     # ── Hardware ─────────────────────────────────────────────────────────
     parser.add_argument('--use_gpu',       type=bool, default=True)
@@ -209,10 +186,6 @@ def create_args():
 
     return parser
 
-
-# =============================================================================
-# Setting tag (separates checkpoint directories per config)
-# =============================================================================
 def build_setting_tag(args):
     s = f'{args.model_id}_{args.model}_{args.seq_len}_{args.learning_rate}_{args.train_epochs}'
 
@@ -252,9 +225,6 @@ def build_setting_tag(args):
     return s
 
 
-# =============================================================================
-# Main
-# =============================================================================
 def main():
     args = create_args().parse_args()
     set_seed(args.seed)

@@ -1,22 +1,9 @@
-"""
-Adaptive Orbital Period Embedding (OPE)
-========================================
-Section 4.2 of the paper.
-
-Replaces the standard sinusoidal positional embedding with a harmonic
-basis tuned to the satellite's orbital period T_orb. T_orb is either
-estimated from training data via Kepler's third law (--ope_auto_period 1)
-or passed as a hyperparameter (--ope_period).
-"""
-
 import math
 import torch
 import torch.nn as nn
 
 
 class OrbitalPeriodEmbedding(nn.Module):
-    """sin(2 pi k t / T_orb), cos(2 pi k t / T_orb)  for k = 1..K."""
-
     def __init__(self, d_model, max_len=5000, n_harmonics=4,
                  period=97.0, dt_minutes=1.0):
         super().__init__()
@@ -40,8 +27,6 @@ class OrbitalPeriodEmbedding(nn.Module):
 
 
 class SinusoidalPositionalEmbedding(nn.Module):
-    """Standard sinusoidal PE (ablation against OPE)."""
-
     def __init__(self, d_model, max_len=5000):
         super().__init__()
         pe = torch.zeros(max_len, d_model).float()
