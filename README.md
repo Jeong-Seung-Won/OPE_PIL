@@ -7,7 +7,7 @@ Official implementation of our CIKM 2026 short paper:
 
 We introduce two model-agnostic plug-in components for satellite orbit anomaly detection:
 
-- **Adaptive Orbital Period Embedding (OPE)**: a positional embedding whose fundamental period is automatically derived from training data via Kepler's third law.
+- **Adaptive Orbital Period Embedding (AOPE)**: a positional embedding whose fundamental period is automatically derived from training data via Kepler's third law.
 - **Physics-informed Loss**: a reconstruction objective augmented with temporal smoothness and angular momentum conservation.
 
 Both components attach to existing reconstruction-based AD backbones with a single-module substitution or an additive loss term. We evaluate on a new KOMPSAT-3 / KOMPSAT-3A benchmark constructed via SACM-based anomaly injection across eight state-of-the-art backbones.
