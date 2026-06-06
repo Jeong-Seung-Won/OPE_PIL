@@ -1,8 +1,8 @@
-# Orbital Period Embedding and Physics-Informed Loss for Satellite Anomaly Detection
+# Adaptive Orbital Period Embedding and Physics-Informed Loss for Satellite Anomaly Detection
 
 Official implementation of our CIKM 2026 short paper:
 
-> **Orbital Period Embedding and Physics-Informed Loss for Satellite Anomaly Detection**
+> **Adaptive Orbital Period Embedding and Physics-Informed Loss for Satellite Anomaly Detection**
 > *CIKM 2026 (Short Paper Track)*
 
 We introduce two model-agnostic plug-in components for satellite orbit anomaly detection:
@@ -17,7 +17,7 @@ Both components attach to existing reconstruction-based AD backbones with a sing
 ## Quick start
 
 ```bash
-# Default backbone (Anomaly Transformer), MSE loss, no OPE:
+# Default backbone (Anomaly Transformer), MSE loss, no AOPE:
 python main.py
 
 # Physics-informed Loss on the default backbone:
@@ -43,8 +43,8 @@ python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
 | NPSR                   | Loss-only plug-in  | NeurIPS 2023 | `npsr`               |
 | TranAD                 | Loss-only plug-in  | VLDB 2022    | `tranad`             |
 
-- **Full plug-in models** support both OPE (`--use_ope 1`) and Physics Loss (`--loss Physics`).
-- **Loss-only plug-in models** use no positional embedding (or one incompatible with direct OPE substitution); only Physics Loss applies.
+- **Full plug-in models** support both AOPE (`--use_ope 1`) and Physics Loss (`--loss Physics`).
+- **Loss-only plug-in models** use no positional embedding (or one incompatible with direct AOPE substitution); only Physics Loss applies.
 
 ## Key arguments
 
@@ -52,7 +52,7 @@ python main.py --loss Physics --use_ope 1 --model sub_adjacent_transformer
 |---|---|---|
 | `--model`             | `anomalytransformer` | AD backbone (see table above) |
 | `--loss`              | `MSE`     | `MSE`, `Physics`, or `SATLoss` (SAT only) |
-| `--use_ope`           | `0`       | Set to `1` to enable Adaptive OPE |
+| `--use_ope`           | `0`       | Set to `1` to enable AOPE |
 | `--ope_n_harmonics`   | `4`       | Number of harmonics K |
 | `--ope_auto_period`   | `1`       | Estimate T_orb via Kepler third law from data |
 | `--physics_lambda_smooth`  | `0.1` | Temporal smoothness weight λ_s |
