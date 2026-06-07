@@ -1,4 +1,4 @@
-# Adaptive Orbital Period Embedding and Physics-Informed Loss for Satellite Anomaly Detection
+# Adaptive Orbital Period Embedding and Physics-informed Loss for Satellite Anomaly Detection
 
 Official implementation of our CIKM 2026 short paper:
 
